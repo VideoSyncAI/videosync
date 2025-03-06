@@ -1,114 +1,89 @@
-# Frame-wise Action Representations for Long Videos via Sequence Contrastive Learning
+# Beyond Audio and Pose: A General-Purpose Framework for Video Synchronization
 
-**Pytorch** code for Frame-wise Action Representations for Long Videos via Sequence Contrastive Learning, CVPR2022.
+Pytorch code for synchronizing two videos that are not aligned in time.
 
-![pennaction_alignment](./pennaction_alignment.gif)
+![System Overview](./videosync-overview.drawio.png)
 
 ## Requirements
 
 ```bash
 # create conda env and install packages
-conda create -y --name carl python=3.7.9
+conda create -y --name videosync_carl python=3.7.9
+conda activate videosync_carl
 
-conda activate carl
-# The code is tested on cuda10.1-cudnn7 and pytorch 1.6.0
-conda install -y pytorch==1.6.0 torchvision==0.7.0 cudatoolkit=10.1 -c pytorch
-conda install -y conda-build ipython pandas scipy pip av -c conda-forge
+conda install -y pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cudatoolkit=11.3 -c pytorch -c conda-forge
+conda install -y conda-build ipython pandas scipy pip av ffmpeg -c conda-forge
 
-# install pip packages
 pip install --upgrade pip
 pip install -r requirements.txt
+
+# In order to resolve protobuf related error:
+# AttributeError: module 'distutils' has no attribute 'version'
+pip install protobuf==3.20.3
+pip install setuptools==59.5.0 wandb av tensorflow-gpu==2.4.0 scikit-learn simplejson iopath easydict opencv-python matplotlib seaborn
+
 ```
-
-
 
 ## Preparing Data
 
-Create a directory to store datasets: 
+Create a directory to store datasets:
 
 ```bash
 mkdir /home/username/datasets
 ```
 
-#### Download pre-processed datasets
+#### Download NTU dataset / pre-process
 
-- Download the Pouring dataset at [pouring](https://drive.google.com/drive/folders/1hvA4bDqPnxjiVM4c4mxm-UPOuO1lAVxW?usp=sharing) 
-- Download the PennAction dataset at [penn_action](https://drive.google.com/drive/folders/1hPbkKSSM5NoQKKzvAr2bHDp-pCHZpnVj?usp=sharing) 
-- Download the FineGym dataset at [finegym](https://drive.google.com/drive/folders/1XOIy_6qtTo5MEecaWsi8X59p9BqLzmag?usp=sharing) 
+Download NTU videos from [here](https://rose1.ntu.edu.sg/dataset/actionRecognition/). You need to request access to the dataset.
 
-BaiduCloud: https://pan.baidu.com/s/1Vu9Qkiei-O10tcdCJAwaHA  password: 7rbo
+Download NTU-SYN annotations by following links from [here](https://github.com/Yliqiang/SeSyn-Net).
 
-(Due to my limited storage, the link for finegym on google drive is expired. Only BaiduCloud link is avaliable now.)
+```bash
+python dataset_preparation/ntu_process.py
+```
 
-#### (Optionally) Pre-process datasets by yourself
+#### Download CMU Pose dataset / pre-process
 
-Download Pouring using the script
+```bash
+python dataset_preparation/download_cmu_script.sh
+python dataset_preparation/cmu_process.py
+```
+
+#### Download CMU Multi human dataset / pre-process
+
+```bash
+python dataset_preparation/download_cmu_multi_human_script.sh
+python dataset_preparation/cmu_process.py
+```
+
+#### Download Pouring datasets / pre-process
 
 ```bash
 sh dataset_preparation/download_pouring_data.sh
 python dataset_preparation/tfrecords_to_videos.py
 ```
 
-Download the original [ Penn Action](http://dreamdragon.github.io/PennAction/) dataset and [label files](https://drive.google.com/drive/folders/1rEnTfMopORljtEv6EGcNUKNEGTGj7_RZ). Run the preparation script:
+## Training
 
-```bash
-python dataset_preparation/penn_action_to_tfrecords.py
-python dataset_preparation/tfrecords_to_videos.py
-```
+Check `./configs` directory to see all config settings.
 
-Download the FineGym dataset from the official web [FineGym](https://sdolivia.github.io/FineGym/). Contact that author to get raw videos or using the youtube-dl script in `download_finegym_videos.py`.
+Training can be monitored on wandb.
 
-Run the preparation script:
-
-```bash
-python dataset_preparation/finegym_process.py
-```
-
-We trim the raw video based on the event time-stamps in `finegym_annotation_info_v1.0.json`. Each event video is standardized to 640x360 resolution and 25 fps. We train the model on the event videos containing at least one sub-action. For further research, we also provide the event videos without sub-action labeled in `additional_processed_videos`.
-
-#### Download ResNet50 pretrained with BYOL
+### Download ResNet50 pretrained with BYOL
 
 Our ResNet50 beckbone is initialized with the weights trained by BYOL.
 
 Download the pretrained weight at [pretrained_models](https://drive.google.com/drive/folders/1VwC4x5xj4Ho3bnh9wZZx--iYhIUguR-q?usp=sharing), and place it at `/home/username/datasets/pretrained_models`.
 
+### Pretraining on NTU
 
-
-## Training
-
-Check `./configs` directory to see all config settings.
-
-##### Training on Pouring
-
-Start training, assuming your machine only have one GPUs (if you have 4 GPUs, set `--nproc_per_node 4`):
-
-```bash
-python -m torch.distributed.launch --nproc_per_node 1 train.py --workdir ~/datasets --cfg_file ./configs/scl_transformer_config.yml --logdir ~/tmp/scl_transformer_logs
-```
-
-The config can be changed by adding `--opt TRAIN.BATCH_SIZE 1 TRAIN.MAX_EPOCHS 500`
-
-Check the file `utils/config.py` to see all config options.
-
-We use “automatic mixed precision training” by default, but it sometimes causes the `'nan' gradient` error. If you encounter this error, set `--opt USE_AMP false`.
-
-##### Training on PennAction
+Download NTU dataset and pre-process it using the above steps.
 
 ```
-python -m torch.distributed.launch --nproc_per_node 1 train.py --workdir ~/datasets --cfg_file ./configs/scl_transformer_action_config.yml --logdir ~/tmp/scl_transformer_action_logs
+python -m torch.distributed.launch --nproc_per_node 1 train.py --workdir ~/datasets --cfg_file ./configs/scl_transformer_ntu_pretrain_config.yml --logdir ~/tmp/scl_transformer_ntu_pretrain_logs
 ```
 
-
-
-##### Training on FineGym
-
-```
-python -m torch.distributed.launch --nproc_per_node 1 train.py --workdir ~/datasets --cfg_file ./configs/scl_transformer_finegym_config.yml --logdir ~/tmp/scl_transformer_finegym_logs
-```
-
-Tips: The default number of data worker is 4, which might causes CPU overloaded for some Machines. In this case, you can set `--opt DATA.NUM_WORKERS 1`.
-
-##### Pretraining on Kinetics400
+### Pretraining on Kinetics400
 
 Download K400 dataset from https://github.com/cvdfoundation/kinetics-dataset
 
@@ -116,50 +91,57 @@ Download K400 dataset from https://github.com/cvdfoundation/kinetics-dataset
 python -m torch.distributed.launch --nproc_per_node 1 train.py --workdir ~/datasets --cfg_file ./configs/scl_transformer_k400_pretrain_config.yml --logdir ~/tmp/scl_transformer_k400_pretrain_logs
 ```
 
-
-
 ### Checkpoints
 
-We provide the checkpoints trained by our CARL method at 
-
-- [scl_transformer_logs](https://drive.google.com/drive/folders/163NvBvfb0_HyciMzqFuPCugN1F3oci7k?usp=sharing) (for Pouring)
-- [scl_transformer_action_logs](https://drive.google.com/drive/folders/1RXD5Vl8hlsBPpiCaSIRlxEFUohPFCLUG?usp=sharing) (for PennAction)
-- [scl_transformer_finegym_logs](https://drive.google.com/drive/folders/1XCxwo9KTXJBG3LfxQwikguLYOI6v-SHw?usp=sharing) (for FineGym). In this checkpoint, we also provide the extracted frame-wise representations of videos in FineGym.
--  [scl_transformer_k400_pretrain_logs](https://drive.google.com/drive/folders/1EYrpweUetE9I1oaia2qkhq2B7gITpR77?usp=sharing) (the model pretrained on K400 by our CARL)
+We provide the checkpoints trained CARL method at [link](https://drive.google.com/drive/folders/1ZWBDoAHKV8O3EMSOLO9iO0ohCwbC7hwY?usp=sharing).
 
 Place these checkpoints at `/home/username/tmp` to evaluate them.
 
-### Evaluation and Visualization
+## Evaluation
 
 Start evaluation.
 
 ```bash
-python -m torch.distributed.launch --nproc_per_node 1 evaluate.py --workdir ~/datasets --cfg_file ./configs/scl_transformer_config.yml --logdir ~/tmp/scl_transformer_logs
+python -m torch.distributed.launch --nproc_per_node 1 evaluate.py \
+--workdir /data \
+--cfg_file ./configs/scl_transformer_ntu_config.yml \
+--logdir ~/tmp/scl_transformer_ntu_logs
+
+python -m torch.distributed.launch --nproc_per_node 1 evaluate.py \
+--workdir /data/ssd \
+--cfg_file ./configs/scl_transformer_cmu_config.yml \
+--logdir ~/tmp/scl_transformer_cmu_logs
+
+python -m torch.distributed.launch --nproc_per_node 1 evaluate.py \
+--workdir /data/ssd \
+--cfg_file ./configs/scl_transformer_pouring_config.yml \
+--logdir ~/tmp/scl_transformer_pouring_logs
 ```
 
-Tensorboard.
+## Train and evaluate with sync offset classifier
+
+Construct similarity matrices for each video pair.
 
 ```bash
-tensorboard --logdir=~/tmp/scl_transformer_logs
+python -m torch.distributed.launch --nproc_per_node 1 construct_softmaxed_sim_dataset.py \
+--workdir /data/ssd \
+--cfg_file ./configs/scl_transformer_cmu_config.yml \
+--logdir ~/tmp/scl_transformer_cmu_logs \
+--dataset_prefix cmu_pose_dataset_240_k400_pretrained
 ```
 
-The video file of video alignment have already generated at `/home/username/tmp/scl_transformer_logs`
+Train sync offset classifier.
 
-
-
-## Citation
-
-```
-@inproceedings{chen2022framewise,
-      title={Frame-wise Action Representations for Long Videos via Sequence Contrastive Learning}, 
-      author={Minghao Chen and Fangyun Wei and Chong Li and Deng Cai},
-      booktitle={CVPR},
-      year={2022}
-}
+```bash
+python train_sync_offset_detector.py --prefix cmu_pose_dataset_240_k400_pretrained --sync_methods log_reg svm mlp cnn
 ```
 
+Evaluate sync offset classifier.
 
+```bash
+python eval_sync_offset_detector.py --model_prefix ntu --data_prefix cmu_pose_dataset_240_k400_pretrained --models mlp
+```
 
 ## Acknowledgment
 
-The training setup code was modified from https://github.com/google-research/google-research/tree/master/tcc
+The training setup code was modified from https://github.com/minghchen/CARL_code

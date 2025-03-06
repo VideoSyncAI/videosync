@@ -48,28 +48,32 @@ def setup_logging(output_dir=None):
     if du.is_master_proc():
         # Enable logging for the master process.
         logging.root.handlers = []
-    else:
+    # else:
         # Suppress logging for non-master processes.
-        _suppress_print()
+        # _suppress_print()
+
+    log_level = logging.INFO
 
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(log_level)
     logger.propagate = False
     plain_formatter = logging.Formatter(
         "[%(asctime)s][%(levelname)s] %(filename)s: %(lineno)3d: %(message)s",
         datefmt="%m/%d %H:%M:%S",
     )
 
-    if du.is_master_proc():
-        ch = logging.StreamHandler(stream=sys.stdout)
-        ch.setLevel(logging.INFO)
-        ch.setFormatter(plain_formatter)
-        logger.addHandler(ch)
+    # if du.is_master_proc():
+    ch = logging.StreamHandler(stream=sys.stdout)
+    ch.setLevel(log_level)
+    ch.setFormatter(plain_formatter)
+    logger.addHandler(ch)
 
-    if output_dir is not None and du.is_master_proc(du.get_world_size()):
-        filename = os.path.join(output_dir, "stdout.log")
+    # if output_dir is not None and du.is_master_proc(du.get_world_size()):
+    if output_dir is not None:
+        filename = os.path.join(
+            output_dir, f"stdout_{du.get_local_rank()}.log")
         fh = logging.StreamHandler(_cached_log_stream(filename))
-        fh.setLevel(logging.INFO)
+        fh.setLevel(log_level)
         fh.setFormatter(plain_formatter)
         logger.addHandler(fh)
 

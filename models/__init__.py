@@ -1,9 +1,11 @@
+import os
 import torch
 from models.resnet_c2d import BaseModel, Classifier
 from models.transformer import TransformerModel
 import utils.logging as logging
 
 logger = logging.get_logger(__name__)
+
 
 def build_model(cfg):
     if cfg.MODEL.EMBEDDER_TYPE == "transformer":
@@ -12,7 +14,6 @@ def build_model(cfg):
         model = BaseModel(cfg)
     return model
 
-import os
 
 def save_checkpoint(cfg, model, optimizer, epoch):
     path = os.path.join(cfg.LOGDIR, "checkpoints")
@@ -27,6 +28,7 @@ def save_checkpoint(cfg, model, optimizer, epoch):
     }
     torch.save(checkpoint, ckpt_path)
     logger.info(f"Saving epoch {epoch} checkpoint at {ckpt_path}")
+
 
 def load_checkpoint(cfg, model, optimizer):
     path = os.path.join(cfg.LOGDIR, "checkpoints")

@@ -4,8 +4,12 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import utils.logging as logging
 from models.resnet_c2d import *
+
+logger = logging.get_logger(__name__)
+logger.disabled = True
+
 
 def attention(Q, K, V, mask=None, dropout=None, visual=False):
     # Q, K, V are (B, *(H), seq_len, d_model//H = d_k)
@@ -60,10 +64,10 @@ class MultiheadedAttention(nn.Module):
         assert self.d_model % H == 0
 
     def forward(self, Q, K, V, mask=None):
-        ''' 
+        '''
             Q, K, V: (B, Sq, Dq), (B, Sk, Dk), (B, Sv, Dv)
             mask: (B, 1, Sk)
-            Sk = Sv, 
+            Sk = Sv,
             Dk != self.d_k
         '''
         B, Sq, d_model_Q = Q.shape
@@ -73,7 +77,8 @@ class MultiheadedAttention(nn.Module):
         V = self.linear_V2d(V)
 
         # (B, H, Sm, d_k) <- (B, Sm, D)
-        Q = Q.view(B, -1, self.H, self.d_k).transpose(-3, -2)  # (-4, -3*, -2*, -1)
+        # (-4, -3*, -2*, -1)
+        Q = Q.view(B, -1, self.H, self.d_k).transpose(-3, -2)
         K = K.view(B, -1, self.H, self.d_k).transpose(-3, -2)
         V = V.view(B, -1, self.H, self.d_k).transpose(-3, -2)
 
@@ -83,7 +88,8 @@ class MultiheadedAttention(nn.Module):
 
         # (B, H, Sq, d_k) <- (B, H, Sq, d_k), (B, H, Sk, d_k), (B, H, Sv, d_k), Sk = Sv
         if self.visual:
-            Q, self.attn_matrix = attention(Q, K, V, mask, self.dropout, self.visual)
+            Q, self.attn_matrix = attention(
+                Q, K, V, mask, self.dropout, self.visual)
             self.attn_matrix = self.attn_matrix.mean(-3)
         else:
             Q = attention(Q, K, V, mask, self.dropout)
@@ -94,8 +100,10 @@ class MultiheadedAttention(nn.Module):
 
         return Q
 
+
 def clone(module, N):
     return nn.ModuleList([deepcopy(module) for _ in range(N)])
+
 
 def generate_sincos_embedding(seq_len, d_model, train_len=None):
     odds = np.arange(0, d_model, 2)
@@ -111,6 +119,7 @@ def generate_sincos_embedding(seq_len, d_model, train_len=None):
         pos_enc_mat[i, evens] = np.cos(pos / (10000 ** (evens / d_model)))
 
     return torch.from_numpy(pos_enc_mat).unsqueeze(0)
+
 
 class PositionalEncoder(nn.Module):
     def __init__(self, cfg, d_model, dout_p, seq_len=3660):
@@ -131,19 +140,21 @@ class PositionalEncoder(nn.Module):
         x = self.dropout(x)
         return x
 
+
 class ResidualConnection(nn.Module):
     def __init__(self, size, dout_p):
         super(ResidualConnection, self).__init__()
         self.norm = nn.LayerNorm(size)
         self.dropout = nn.Dropout(dout_p)
 
-    def forward(self, x, sublayer): 
+    def forward(self, x, sublayer):
         # x (B, S, D)
         res = self.norm(x)
         res = sublayer(res)
         res = self.dropout(res)
 
         return x + res
+
 
 class BridgeConnection(nn.Module):
     def __init__(self, in_dim, out_dim, dout_p):
@@ -180,20 +191,24 @@ class PositionwiseFeedForward(nn.Module):
 
         return x
 
+
 class EncoderLayer(nn.Module):
-    
+
     def __init__(self, d_model, dout_p, H=8, d_ff=None, d_hidden=None):
         super(EncoderLayer, self).__init__()
         self.res_layer0 = ResidualConnection(d_model, dout_p)
         self.res_layer1 = ResidualConnection(d_model, dout_p)
-        if d_hidden is None: d_hidden = d_model
-        if d_ff is None: d_ff = 4*d_model
-        self.self_att = MultiheadedAttention(d_model, d_model, d_model, H, d_model=d_hidden)
+        if d_hidden is None:
+            d_hidden = d_model
+        if d_ff is None:
+            d_ff = 4*d_model
+        self.self_att = MultiheadedAttention(
+            d_model, d_model, d_model, H, d_model=d_hidden)
         self.feed_forward = PositionwiseFeedForward(d_model, d_ff, dout_p=0.0)
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
-        
+
     def forward(self, x, src_mask=None):
         '''
         in:
@@ -202,21 +217,23 @@ class EncoderLayer(nn.Module):
             (B, S, d_model)
         '''
         # sublayer should be a function which inputs x and outputs transformation
-        # thus, lambda is used instead of just `self.self_att(x, x, x)` which outputs 
+        # thus, lambda is used instead of just `self.self_att(x, x, x)` which outputs
         # the output of the self attention
-        sublayer0 = lambda x: self.self_att(x, x, x, src_mask)
+        def sublayer0(x): return self.self_att(x, x, x, src_mask)
         sublayer1 = self.feed_forward
-        
+
         x = self.res_layer0(x, sublayer0)
         x = self.res_layer1(x, sublayer1)
-        
+
         return x
+
 
 class Encoder(nn.Module):
     def __init__(self, d_model, dout_p, H, d_ff, N, d_hidden=None):
         super(Encoder, self).__init__()
-        self.enc_layers = clone(EncoderLayer(d_model, dout_p, H, d_ff, d_hidden), N)
-        
+        self.enc_layers = clone(EncoderLayer(
+            d_model, dout_p, H, d_ff, d_hidden), N)
+
     def forward(self, x, src_mask=None):
         '''
         in:
@@ -240,7 +257,7 @@ class TransformerEmbModel(nn.Module):
         self.embedding_size = cfg.MODEL.EMBEDDER_MODEL.EMBEDDING_SIZE
         hidden_channels = cfg.MODEL.EMBEDDER_MODEL.HIDDEN_SIZE
         self.pooling = nn.AdaptiveMaxPool2d(1)
-        
+
         self.fc_layers = []
         for channels, activate in fc_params:
             channels = channels*cap_scalar
@@ -250,14 +267,15 @@ class TransformerEmbModel(nn.Module):
             self.fc_layers.append(nn.ReLU(True))
             in_channels = channels
         self.fc_layers = nn.Sequential(*self.fc_layers)
-        
+
         self.video_emb = nn.Linear(in_channels, hidden_channels)
-        
-        self.video_pos_enc = PositionalEncoder(cfg, hidden_channels, drop_rate, seq_len=cfg.TRAIN.NUM_FRAMES)
+
+        self.video_pos_enc = PositionalEncoder(
+            cfg, hidden_channels, drop_rate, seq_len=cfg.TRAIN.NUM_FRAMES)
         if cfg.MODEL.EMBEDDER_MODEL.NUM_LAYERS > 0:
-            self.video_encoder = Encoder(hidden_channels, drop_rate, cfg.MODEL.EMBEDDER_MODEL.NUM_HEADS, 
-                                            cfg.MODEL.EMBEDDER_MODEL.D_FF, cfg.MODEL.EMBEDDER_MODEL.NUM_LAYERS)
-        
+            self.video_encoder = Encoder(hidden_channels, drop_rate, cfg.MODEL.EMBEDDER_MODEL.NUM_HEADS,
+                                         cfg.MODEL.EMBEDDER_MODEL.D_FF, cfg.MODEL.EMBEDDER_MODEL.NUM_LAYERS)
+
         self.embedding_layer = nn.Linear(hidden_channels, self.embedding_size)
 
     def forward(self, x, video_masks=None):
@@ -278,26 +296,31 @@ class TransformerEmbModel(nn.Module):
         x = x.view(batch_size, num_steps, self.embedding_size)
         return x
 
+
 class TransformerModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
         res50_model = models.resnet50(pretrained=True)
         if cfg.MODEL.BASE_MODEL.LAYER == 3:
-            self.backbone = nn.Sequential(*list(res50_model.children())[:-3]) # output of layer3: 1024x14x14
+            # output of layer3: 1024x14x14
+            self.backbone = nn.Sequential(*list(res50_model.children())[:-3])
             self.res_finetune = list(res50_model.children())[-3]
             cfg.MODEL.BASE_MODEL.OUT_CHANNEL = 2048
         elif cfg.MODEL.BASE_MODEL.LAYER == 2:
-            self.backbone = nn.Sequential(*list(res50_model.children())[:-4]) # output of layer2
-            self.res_finetune = nn.Sequential(*list(res50_model.children())[-4:-2])
+            self.backbone = nn.Sequential(
+                *list(res50_model.children())[:-4])  # output of layer2
+            self.res_finetune = nn.Sequential(
+                *list(res50_model.children())[-4:-2])
             cfg.MODEL.BASE_MODEL.OUT_CHANNEL = 2048
         else:
-            self.backbone = nn.Sequential(*list(res50_model.children())[:-2]) # output of layer4: 2048x7x7
+            # output of layer4: 2048x7x7
+            self.backbone = nn.Sequential(*list(res50_model.children())[:-2])
             self.res_finetune = nn.Identity()
             cfg.MODEL.BASE_MODEL.OUT_CHANNEL = 2048
         self.embed = TransformerEmbModel(cfg)
         self.embedding_size = self.embed.embedding_size
-        
+
         if cfg.MODEL.PROJECTION:
             self.ssl_projection = MLPHead(cfg)
         if cfg.TRAINING_ALGO == 'classification':
@@ -308,6 +331,8 @@ class TransformerModel(nn.Module):
         batch_size, num_steps, c, h, w = x.shape
         frames_per_batch = self.cfg.MODEL.BASE_MODEL.FRAMES_PER_BATCH
         num_blocks = int(math.ceil(float(num_steps)/frames_per_batch))
+        logger.info(
+            f'num_blocks: {num_blocks}, num_steps: {num_steps}, frames_per_batch: {frames_per_batch}')
         backbone_out = []
         for i in range(num_blocks):
             curr_idx = i * frames_per_batch
@@ -317,20 +342,47 @@ class TransformerModel(nn.Module):
             self.backbone.eval()
             with torch.no_grad():
                 curr_emb = self.backbone(curr_data)
+
+            # logger.info(
+            #     f'curr_emb.shape: {curr_emb.shape}, curr_emb.max: {curr_emb.max()}, curr_emb.min: {curr_emb.min()}, torch.isnan(input).any(curr_emb): {torch.isnan(curr_emb).any()}, torch.isinf(input).any(curr_emb): {torch.isinf(curr_emb).any()}')
+
             curr_emb = self.res_finetune(curr_emb)
+
+            # logger.info(
+            #     f'curr_emb.shape: {curr_emb.shape}, curr_emb.max: {curr_emb.max()}, curr_emb.min: {curr_emb.min()}, torch.isnan(input).any(curr_emb): {torch.isnan(curr_emb).any()}, torch.isinf(input).any(curr_emb): {torch.isinf(curr_emb).any()}')
+
+            # for name, param in self.res_finetune.named_parameters():
+            #     if param.grad is not None and torch.isnan(param.grad).any():
+            #         logger.info(f"NaNs detected in gradient of {name}")
+            #     elif param.grad is not None and torch.isinf(param.grad).any():
+            #         logger.info(f"Infs detected in gradient of {name}")
+
             _, out_c, out_h, out_w = curr_emb.size()
             curr_emb = curr_emb.contiguous().view(batch_size, cur_steps, out_c, out_h, out_w)
             backbone_out.append(curr_emb)
         x = torch.cat(backbone_out, dim=1)
-        
+
+        # logger.info(
+        #     f'x.shape: {x.shape}, x.max: {x.max()}, x.min: {x.min()}, torch.isnan(input).any(x): {torch.isnan(x).any()}, torch.isinf(input).any(x): {torch.isinf(x).any()}')
+
         x = self.embed(x, video_masks=video_masks)
+
+        logger.info(
+            f'x.shape: {x.shape}, x.max: {x.max()}, x.min: {x.min()}, torch.isnan(input).any(x): {torch.isnan(x).any()}, torch.isinf(input).any(x): {torch.isinf(x).any()}')
 
         if self.cfg.MODEL.PROJECTION and project:
             x = self.ssl_projection(x)
+
+            logger.info(
+                f'x.shape: {x.shape}, x.max: {x.max()}, x.min: {x.min()}, torch.isnan(input).any(x): {torch.isnan(x).any()}, torch.isinf(input).any(x): {torch.isinf(x).any()}')
+
             x = F.normalize(x, dim=-1)
+
+            logger.info(
+                f'x.shape: {x.shape}, x.max: {x.max()}, x.min: {x.min()}, torch.isnan(input).any(x): {torch.isnan(x).any()}, torch.isinf(input).any(x): {torch.isinf(x).any()}')
+
         elif self.cfg.MODEL.L2_NORMALIZE:
             x = F.normalize(x, dim=-1)
         if classification:
             return self.classifier(x)
         return x
-

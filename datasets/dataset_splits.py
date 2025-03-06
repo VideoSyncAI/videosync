@@ -47,5 +47,5 @@ DATASET_TO_NUM_CLASSES = {
     'situp': 2,
     'squat': 4,
     'tennis_forehand': 3,
-    'tennis_serve': 4,
+    'tennis_serve': 4
 }

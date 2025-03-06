@@ -10,10 +10,15 @@ import torch.nn.functional as F
 import numpy as np
 import math
 
+import utils.logging as logging
+logger = logging.get_logger(__name__)
+logger.disabled = True
+
 def safe_div(a, b):
     out = a / b
     out[torch.isnan(out)] = 0
     return out
+
 
 class SCL(object):
     def __init__(self, cfg):
@@ -42,25 +47,32 @@ class SCL(object):
         if video_masks is not None:
             video_masks = video_masks.view(-1, 1, num_steps)
         # add mlp projection head
-        embs = model(videos, num_frames, video_masks=video_masks, project=self.cfg.MODEL.PROJECTION)
+
+        logger.info(f'videos.shape: {videos.shape}, num_frames: {num_frames}, video_masks.shape: {video_masks.shape}, self.cfg.MODEL.PROJECTION: {self.cfg.MODEL.PROJECTION}')
+        embs = model(videos, num_frames, video_masks=video_masks,
+                     project=self.cfg.MODEL.PROJECTION)
         embs = embs.view(batch_size, num_views, num_frames, embs.size(-1))
         seq_lens = seq_lens.view(batch_size, num_views)
 
-        loss = self.compute_sequence_loss(embs, seq_lens.to(embs.device), chosen_steps.to(embs.device), video_masks.to(embs.device))
+        loss = self.compute_sequence_loss(embs, seq_lens.to(
+            embs.device), chosen_steps.to(embs.device), video_masks.to(embs.device))
         return loss
 
     def compute_sequence_loss(self, embs, seq_lens, steps, masks=None):
 
         batch_size, num_views, num_frames, channels = embs.shape
 
-        embs = embs.view(-1, channels) # (batch_size*num_views*num_frames, channels)
+        # (batch_size*num_views*num_frames, channels)
+        embs = embs.view(-1, channels)
         steps = steps.view(-1)
-        seq_lens = seq_lens.unsqueeze(-1).expand(batch_size, num_views, num_frames).contiguous().view(-1).float()
+        seq_lens = seq_lens.unsqueeze(-1).expand(batch_size,
+                                                 num_views, num_frames).contiguous().view(-1).float()
         input_masks = masks.view(-1, 1)*masks.view(1, -1)
 
-        logits = torch.matmul(embs, embs.transpose(0,1)) / self.temperature
-        distence = torch.abs(steps.view(-1,1)/seq_lens.view(-1,1)*seq_lens.view(1,-1)-steps.view(1,-1))
-        distence.masked_fill_((input_masks==0), 1e6)
+        logits = torch.matmul(embs, embs.transpose(0, 1)) / self.temperature
+        distence = torch.abs(steps.view(-1, 1)/seq_lens.view(-1, 1)
+                             * seq_lens.view(1, -1)-steps.view(1, -1))
+        distence.masked_fill_((input_masks == 0), 1e6)
         weight = torch.ones_like(logits)
         nn = torch.zeros_like(steps).long()
 
@@ -69,20 +81,23 @@ class SCL(object):
             start = b*num_views*num_frames
             mid = start+num_frames
             end = (b+1)*num_views*num_frames
-            nn[start:mid] = mid+torch.argmin(distence[start:mid,mid:end], dim=1)
-            nn[mid:end] = start+torch.argmin(distence[mid:end,start:mid], dim=1)
+            nn[start:mid] = mid + \
+                torch.argmin(distence[start:mid, mid:end], dim=1)
+            nn[mid:end] = start + \
+                torch.argmin(distence[mid:end, start:mid], dim=1)
             if "single" in self.negative_type:
-                weight[start:end,:start].fill_(0)
-                weight[start:end,end:].fill_(0)
+                weight[start:end, :start].fill_(0)
+                weight[start:end, end:].fill_(0)
             if "noself" in self.negative_type:
-                weight[start:mid,start:mid] = 0
-                weight[mid:end,mid:end] = 0
-        weight.masked_fill_((input_masks==0), 1e-6)
+                weight[start:mid, start:mid] = 0
+                weight[mid:end, mid:end] = 0
+        weight.masked_fill_((input_masks == 0), 1e-6)
 
         # positive weight
         label = torch.zeros_like(logits)
         if self.positive_type == "gauss":
-            pos_weight = torch.exp(-torch.square(distence)/(2*self.label_varience)).type_as(logits)
+            pos_weight = torch.exp(-torch.square(distence) /
+                                   (2*self.label_varience)).type_as(logits)
             # according to three sigma law, we can ignore the distence further than three sigma.
             # it may avoid the numerical unstablity and keep the performance.
             # pos_weight[(distence>3*np.sqrt(self.label_varience))] = 0
@@ -90,16 +105,19 @@ class SCL(object):
                 start = b*num_views*num_frames
                 mid = start+num_frames
                 end = (b+1)*num_views*num_frames
-                cur_pos_weight = pos_weight[start:mid,mid:end]
-                label[start:mid,mid:end] = safe_div(cur_pos_weight, cur_pos_weight.sum(dim=1, keepdim=True))
-                cur_pos_weight = pos_weight[mid:end,start:mid]
-                label[mid:end,start:mid] = safe_div(cur_pos_weight, cur_pos_weight.sum(dim=1, keepdim=True))
+                cur_pos_weight = pos_weight[start:mid, mid:end]
+                label[start:mid, mid:end] = safe_div(
+                    cur_pos_weight, cur_pos_weight.sum(dim=1, keepdim=True))
+                cur_pos_weight = pos_weight[mid:end, start:mid]
+                label[mid:end, start:mid] = safe_div(
+                    cur_pos_weight, cur_pos_weight.sum(dim=1, keepdim=True))
 
         exp_logits = torch.exp(logits)
         sum_negative = torch.sum(weight*exp_logits, dim=1, keepdim=True)
 
-        loss = F.kl_div(torch.log(safe_div(exp_logits, sum_negative) + 1e-6), label, reduction="none")
+        loss = F.kl_div(
+            torch.log(safe_div(exp_logits, sum_negative) + 1e-6), label, reduction="none")
         loss = torch.sum(loss*input_masks)
         loss = loss / torch.sum(masks)
-        
+
         return {"loss": loss}

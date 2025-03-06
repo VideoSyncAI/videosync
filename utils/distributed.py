@@ -55,12 +55,12 @@ def all_reduce(tensors, average=True):
 
 
 def init_process_group(
-    local_rank,
-    local_world_size,
-    shard_id,
-    num_shards,
-    init_method,
-    dist_backend="nccl",):
+        local_rank,
+        local_world_size,
+        shard_id,
+        num_shards,
+        init_method,
+        dist_backend="nccl",):
     """
     Initializes the default process group.
     Args:
@@ -132,6 +132,7 @@ def get_rank():
         return 0
     return dist.get_rank()
 
+from datetime import timedelta
 
 def synchronize():
     """
@@ -145,7 +146,8 @@ def synchronize():
     world_size = dist.get_world_size()
     if world_size == 1:
         return
-    dist.barrier()
+    # dist.barrier()
+    dist.monitored_barrier(group=_get_global_gloo_group(), timeout=timedelta(seconds=10), wait_all_ranks=True)
 
 
 @functools.lru_cache()
@@ -305,5 +307,5 @@ def get_local_rank() -> int:
         return 0
     if not dist.is_initialized():
         return 0
-    assert _LOCAL_PROCESS_GROUP is not None
+    # assert _LOCAL_PROCESS_GROUP is not None
     return dist.get_rank(group=_LOCAL_PROCESS_GROUP)

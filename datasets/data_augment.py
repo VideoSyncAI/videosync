@@ -5,11 +5,13 @@ import torch
 from torchvision import transforms
 from PIL import Image, ImageOps, ImageFilter
 
+
 def flip(x, dim=-1):
     indices = [slice(None)] * x.dim()
     indices[dim] = torch.arange(x.size(dim) - 1, -1, -1,
                                 dtype=torch.long, device=x.device)
     return x[tuple(indices)]
+
 
 def resize(images, size):
     return torch.nn.functional.interpolate(
@@ -18,6 +20,7 @@ def resize(images, size):
         mode="bilinear",
         align_corners=False,
     )
+
 
 def uniform_crop(images, size, spatial_idx=1):
     """
@@ -51,10 +54,11 @@ def uniform_crop(images, size, spatial_idx=1):
         elif spatial_idx == 2:
             x_offset = width - size
     cropped = images[
-        :, :, y_offset : y_offset + size, x_offset : x_offset + size
+        :, :, y_offset: y_offset + size, x_offset: x_offset + size
     ]
 
     return cropped
+
 
 def grayscale(images):
     """
@@ -69,7 +73,8 @@ def grayscale(images):
     """
     # R -> 0.299, G -> 0.587, B -> 0.114.
     img_gray = images.clone()
-    gray_channel = 0.299 * images[:, 0] + 0.587 * images[:, 1] + 0.114 * images[:, 2]
+    gray_channel = 0.299 * images[:, 0] + \
+        0.587 * images[:, 1] + 0.114 * images[:, 2]
     img_gray[:, 0] = gray_channel
     img_gray[:, 1] = gray_channel
     img_gray[:, 2] = gray_channel
@@ -99,7 +104,7 @@ def color_jitter(images, img_brightness=0, img_contrast=0, img_saturation=0, img
         g_apply = False
     else:
         g_var = random.uniform(0.1, 2.0)
-        g_apply = random.uniform(0,1) < img_blur
+        g_apply = random.uniform(0, 1) < img_blur
     for i in range(len(images)):
         img = transforms.functional.to_pil_image(images[i])
         for idx in range(4):
@@ -180,6 +185,7 @@ def saturation_jitter(images, var=0):
         images[i] = transforms.functional.to_tensor(img)
 
     return images
+
 
 def hue_jitter(images, var=0):
     """
@@ -284,7 +290,7 @@ def random_resized_crop(
     width = images.shape[3]
 
     i, j, h, w = _get_param_spatial_crop(scale, ratio, height, width)
-    cropped = images[:, :, i : i + h, j : j + w]
+    cropped = images[:, :, i: i + h, j: j + w]
     result = torch.nn.functional.interpolate(
         cropped,
         size=(target_height, target_width),
@@ -292,10 +298,12 @@ def random_resized_crop(
         align_corners=False)
     return result
 
+
 class AugmentOp:
     """
     Apply for video.
     """
+
     def __init__(self, aug_fn, *args, **kwargs):
         self.aug_fn = aug_fn
         self.args = args
@@ -304,10 +312,12 @@ class AugmentOp:
     def __call__(self, images):
         return self.aug_fn(images, *self.args, **self.kwargs)
 
+
 class RandomOp:
     """
     Apply for video.
     """
+
     def __init__(self, aug_fn, prob, *args, **kwargs):
         self.aug_fn = aug_fn
         self.prob = prob
@@ -315,9 +325,10 @@ class RandomOp:
         self.kwargs = kwargs
 
     def __call__(self, images):
-        if random.uniform(0,1) < self.prob:
+        if random.uniform(0, 1) < self.prob:
             images = self.aug_fn(images, *self.args, **self.kwargs)
         return images
+
 
 class ComposeOp:
     def __init__(self, ops):
@@ -330,6 +341,7 @@ class ComposeOp:
             # if torch.cuda.device_count() == 1:
             #     print(f"op time: {time.time()-start_time:.3f}")
         return img_list
+
 
 def create_ssl_data_augment(cfg, augment):
     ops = []
@@ -357,10 +369,11 @@ def create_ssl_data_augment(cfg, augment):
         'size': cfg.IMAGE_SIZE
     }))
     ops.append(AugmentOp(color_normalization, **{
-        "mean" : [0.485, 0.456, 0.406],
+        "mean": [0.485, 0.456, 0.406],
         "stddev": [0.229, 0.224, 0.225]
     }))
     return ComposeOp(ops)
+
 
 def create_data_augment(cfg, augment):
     ops = []
@@ -397,7 +410,7 @@ def create_data_augment(cfg, augment):
         'size': cfg.IMAGE_SIZE
     }))
     ops.append(AugmentOp(color_normalization, **{
-        "mean" : [0.485, 0.456, 0.406],
+        "mean": [0.485, 0.456, 0.406],
         "stddev": [0.229, 0.224, 0.225]
     }))
     return ComposeOp(ops)

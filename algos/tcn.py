@@ -33,15 +33,17 @@ class TCN(object):
     def npairs_loss(self, labels, embeddings_anchor, embeddings_positive):
         """Returns n-pairs metric loss."""
         reg_anchor = torch.mean(torch.sum(torch.square(embeddings_anchor), 1))
-        reg_positive = torch.mean(torch.sum(torch.square(embeddings_positive), 1))
+        reg_positive = torch.mean(
+            torch.sum(torch.square(embeddings_positive), 1))
         l2loss = 0.25 * self.reg_lambda * (reg_anchor + reg_positive)
 
         # Get per pair similarities.
         similarity_matrix = torch.matmul(
-            embeddings_anchor, embeddings_positive.transpose(0,1))
+            embeddings_anchor, embeddings_positive.transpose(0, 1))
 
         # Add the softmax loss.
-        xent_loss = torch.nn.CrossEntropyLoss(reduction='mean')(similarity_matrix, labels)
+        xent_loss = torch.nn.CrossEntropyLoss(
+            reduction='mean')(similarity_matrix, labels)
         xent_loss = torch.mean(xent_loss)
 
         return l2loss + xent_loss

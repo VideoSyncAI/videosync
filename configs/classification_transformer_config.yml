@@ -24,24 +24,24 @@ DATA:
   SAMPLING_REGION: 1.5
   CONSISTENT_OFFSET: 0.0
 DATASETS:
-- pouring
+  - pouring
 EVAL:
   BATCH_SIZE: 1
   CLASSIFICATION_FRACTIONS:
-  - 1.0
+    - 1.0
   FRAMES_PER_BATCH: 1000
   KENDALLS_TAU_DISTANCE: sqeuclidean
   KENDALLS_TAU_STRIDE: 5
-  RETRIEVAL_KS: 
-  - 5
-  - 10
-  - 15
+  RETRIEVAL_KS:
+    - 5
+    - 10
+    - 15
   NUM_FRAMES: 240
   TASKS:
-  - kendalls_tau
-  - retrieval
-  - classification
-  - event_completion
+    - kendalls_tau
+    - retrieval
+    - classification
+    - event_completion
   VAL_INTERVAL: 50
 IMAGE_SIZE: 224
 LOGDIR: /tmp/classification_transformer_logs
@@ -59,18 +59,18 @@ MODEL:
     NUM_LAYERS: 2
     CAPACITY_SCALAR: 2
     CONV_LAYERS:
-    - &id002
-      - 256
-      - 3
-      - 1
-    - *id002
+      - &id002
+        - 256
+        - 3
+        - 1
+      - *id002
     EMBEDDING_SIZE: 128
     FC_DROPOUT_RATE: 0.1
     FC_LAYERS:
-    - &id003
-      - 256
-      - true
-    - *id003
+      - &id003
+        - 256
+        - true
+      - *id003
     FLATTEN_METHOD: max_pool
     USE_BN: true
   EMBEDDER_TYPE: transformer
@@ -90,7 +90,7 @@ OPTIMIZER:
     FINAL_LR: 0.0
   TYPE: AdamOptimizer
   WEIGHT_DECAY: 1.0e-05
-PATH_TO_DATASET: 'pouring'
+PATH_TO_DATASET: "pouring"
 RNG_SEED: 1
 SHARD_ID: 0
 TRAIN:

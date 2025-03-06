@@ -1,4 +1,10 @@
 # coding=utf-8
+import cv2
+from dataset_preparation.dataset_utils import write_seqs_to_tfrecords
+import scipy.io as sio
+from absl import logging
+from absl import flags
+from absl import app
 import glob
 import math
 import os
@@ -6,17 +12,9 @@ import numpy as np
 import sys
 sys.path.append('.')
 
-from absl import app
-from absl import flags
-from absl import logging
 
-import scipy.io as sio
-
-from dataset_preparation.dataset_utils import write_seqs_to_tfrecords
-
-import cv2
-
-flags.DEFINE_string('dir', '/home/username/datasets/Penn_Action/', 'Path to videos.')
+flags.DEFINE_string(
+    'dir', '/home/username/datasets/Penn_Action/', 'Path to videos.')
 flags.DEFINE_string('name', 'penn_action', 'Name of the dataset being created. This will'
                     'be used as a prefix.')
 flags.DEFINE_string('extension', 'jpg', 'Extension of images.')
@@ -71,10 +69,11 @@ def get_frames_in_folder(path, rotate, resize, width, height):
     if not os.path.isdir(path):
         raise ValueError('Provided path %s is not a directory' % path)
     else:
-        im_list = sorted(glob.glob(os.path.join(path, '*.%s' % FLAGS.extension)))
+        im_list = sorted(
+            glob.glob(os.path.join(path, '*.%s' % FLAGS.extension)))
 
     frames = [preprocess(cv2.imread(im), rotate, resize, width, height)
-                for im in im_list]
+              for im in im_list]
     return frames
 
 
@@ -116,17 +115,19 @@ def create_tfrecords(name, output_dir, dir, label_dir,
 
     videos_dir = os.path.join(dir, "frames")
 
-    paths = sorted([os.path.join(videos_dir, f) for f in os.listdir(videos_dir)])
+    paths = sorted([os.path.join(videos_dir, f)
+                   for f in os.listdir(videos_dir)])
 
     data = {}
     for split in os.listdir(label_dir):
-        if os.path.isfile(os.path.join(label_dir, split)): continue
+        if os.path.isfile(os.path.join(label_dir, split)):
+            continue
         for action_label_dir in os.listdir(os.path.join(label_dir, split)):
             for video_id in os.listdir(os.path.join(label_dir, split, action_label_dir)):
                 if ".npy" in video_id:
-                    data[video_id[:4]] = {"split": split, 
-                                "labels": np.load(os.path.join(label_dir, split, action_label_dir, video_id)),
-                                "action_label": action_label_dir}
+                    data[video_id[:4]] = {"split": split,
+                                          "labels": np.load(os.path.join(label_dir, split, action_label_dir, video_id)),
+                                          "action_label": action_label_dir}
 
     names_to_seqs = {}
     shard_id = 0
@@ -138,7 +139,7 @@ def create_tfrecords(name, output_dir, dir, label_dir,
         if id_label in ["strum_guitar", "jump_rope"]:
             continue
         frames = get_frames_in_folder(path, FLAGS.rotate, FLAGS.resize,
-                                    FLAGS.width, FLAGS.height)
+                                      FLAGS.width, FLAGS.height)
 
         if video_id in data:
             video_labels = data[video_id]["labels"]
@@ -146,27 +147,28 @@ def create_tfrecords(name, output_dir, dir, label_dir,
         else:
             print(f"Attention! Labels for {vid_name} don't exist!")
             continue
-        
+
         if split != FLAGS.split:
             continue
-        
+
         seq['video'] = frames
         seq['labels'] = video_labels
 
-
-        if len(seq['video'])!=len(seq['labels']):
+        if len(seq['video']) != len(seq['labels']):
             print(vid_name, len(seq['video']), len(seq['labels']))
             if len(seq['video']) > len(seq['labels']):
-                seq['video'] = [seq['video'][math.floor(j*len(seq['video'])/len(seq['labels']))] for j in range(len(seq['labels']))]
+                seq['video'] = [seq['video'][math.floor(
+                    j*len(seq['video'])/len(seq['labels']))] for j in range(len(seq['labels']))]
             else:
-                seq['labels'] = [seq['labels'][math.floor(j*len(seq['labels'])/len(seq['video']))] for j in range(len(seq['video']))]
+                seq['labels'] = [seq['labels'][math.floor(
+                    j*len(seq['labels'])/len(seq['video']))] for j in range(len(seq['video']))]
 
         names_to_seqs[vid_name] = seq
         if (i + 1) % FLAGS.vids_per_shard == 0 or i == len(paths)-1:
             output_filename = os.path.join(
-            output_dir,
-            '%s_%s-%s.tfrecord' % (name, FLAGS.split,
-                                        str(shard_id)))
+                output_dir,
+                '%s_%s-%s.tfrecord' % (name, FLAGS.split,
+                                       str(shard_id)))
             write_seqs_to_tfrecords(output_filename, names_to_seqs,
                                     FLAGS.action_label, frame_labels)
 
@@ -176,8 +178,8 @@ def create_tfrecords(name, output_dir, dir, label_dir,
 
 def main(_):
     create_tfrecords(FLAGS.name, FLAGS.output_dir, FLAGS.dir,
-                    FLAGS.label_dir, FLAGS.frame_labels, FLAGS.fps,
-                    FLAGS.expected_segments)
+                     FLAGS.label_dir, FLAGS.frame_labels, FLAGS.fps,
+                     FLAGS.expected_segments)
 
 
 if __name__ == '__main__':

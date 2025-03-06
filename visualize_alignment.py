@@ -1,5 +1,7 @@
 # coding=utf-8
 """Visualize alignment based on nearest neighbor in embedding space."""
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation  # pylint: disable=g-import-not-at-top
 import os
 import torch
 import math
@@ -12,12 +14,11 @@ from utils.config import get_cfg
 
 import matplotlib
 matplotlib.use('Agg')
-from matplotlib.animation import FuncAnimation  # pylint: disable=g-import-not-at-top
-import matplotlib.pyplot as plt
 
 logger = logging.get_logger(__name__)
 
 EPSILON = 1e-7
+
 
 def get_nn(embs, query_emb):
     dist = cdist(embs, query_emb, axis=1)
@@ -47,12 +48,12 @@ def align(query_feats, candidate_feats, use_dtw):
 def create_video(query_embs, query_frames, key_embs, key_frames, video_path, use_dtw, interval=50, time_stride=1, image_out=False):
     """Create aligned videos."""
     nns = align(query_embs, key_embs, use_dtw)
-    if time_stride>1:
+    if time_stride > 1:
         query_frames = query_frames[::time_stride]
         nns = nns[::time_stride]
         interval = interval*time_stride
 
-    plt.figure(figsize=(5,1))
+    plt.figure(figsize=(5, 1))
     nns_stride = np.floor(nns/time_stride)
     print(nns_stride)
     for t, t_nns in enumerate(nns_stride):
@@ -79,7 +80,7 @@ def create_video(query_embs, query_frames, key_embs, key_frames, video_path, use
         ax[0].set_yticks([])
         ax[1].set_yticks([])
         plt.tight_layout()
-    
+
     if image_out:
         image_folder = video_path.split('.mp4')[0]
         os.makedirs(image_folder, exist_ok=True)
@@ -96,8 +97,8 @@ def create_video(query_embs, query_frames, key_embs, key_frames, video_path, use
         anim.save(video_path, dpi=80)
 
 
-def create_multiple_video(query_embs, query_frames, key_embs_list, key_frames_list, video_path, use_dtw, 
-                        interval=50):
+def create_multiple_video(query_embs, query_frames, key_embs_list, key_frames_list, video_path, use_dtw,
+                          interval=50):
     """Create aligned videos."""
     K = len(key_embs_list)
     nns_list = []
@@ -105,7 +106,8 @@ def create_multiple_video(query_embs, query_frames, key_embs_list, key_frames_li
         nns = align(query_embs, key_embs, use_dtw)
         nns_list.append(nns)
 
-    fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(10, 10), tight_layout=True)
+    fig, ax = plt.subplots(
+        nrows=2, ncols=3, figsize=(10, 10), tight_layout=True)
 
     def update(i):
         """Update plot with next frame."""
@@ -116,12 +118,13 @@ def create_multiple_video(query_embs, query_frames, key_embs_list, key_frames_li
         ax[0, 0].set_xticks([])
         ax[0, 0].set_yticks([])
         for k in range(K):
-            ax[(k+1)//3,(k+1)%3].imshow(unnorm(key_frames_list[k][nns_list[k][i]]))
-            ax[(k+1)//3,(k+1)%3].grid(False)
-            ax[(k+1)//3,(k+1)%3].set_xticks([])
-            ax[(k+1)//3,(k+1)%3].set_yticks([])
+            ax[(k+1)//3, (k+1) %
+                3].imshow(unnorm(key_frames_list[k][nns_list[k][i]]))
+            ax[(k+1)//3, (k+1) % 3].grid(False)
+            ax[(k+1)//3, (k+1) % 3].set_xticks([])
+            ax[(k+1)//3, (k+1) % 3].set_yticks([])
         plt.tight_layout()
-    
+
     anim = FuncAnimation(
         fig,
         update,
@@ -134,7 +137,7 @@ def create_multiple_video(query_embs, query_frames, key_embs_list, key_frames_li
 def create_single_video(frames, labels, video_path, interval=50, time_stride=1, image_out=False):
     """Create aligned videos."""
     fig, ax = plt.subplots(ncols=1, figsize=(10, 10), tight_layout=True)
-    if time_stride>1:
+    if time_stride > 1:
         frames = frames[::time_stride]
         interval = interval*time_stride
 
@@ -152,7 +155,7 @@ def create_single_video(frames, labels, video_path, interval=50, time_stride=1, 
         ax.set_xticks([])
         ax.set_yticks([])
         plt.tight_layout()
-    
+
     if image_out:
         image_folder = video_path.split('.mp4')[0]
         os.makedirs(image_folder, exist_ok=True)
@@ -180,19 +183,20 @@ def visualize(args, cfg):
 
     for data in dataset:
         name = data["name"]
-        video_file = os.path.join(args.data_path, "pouring", data["video_file"])
+        video_file = os.path.join(
+            args.data_path, "pouring", data["video_file"])
         if name == args.reference_video:
             print(name)
             video, _, info = read_video(video_file, pts_unit='sec')
-            video = video.permute(0,3,1,2).float() / 255.0
+            video = video.permute(0, 3, 1, 2).float() / 255.0
             query_frames = video.numpy()
-            query_embs = np.arange(len(query_frames)).reshape(-1,1)
+            query_embs = np.arange(len(query_frames)).reshape(-1, 1)
         elif name == args.candidate_video:
             print(name)
             video, _, info = read_video(video_file, pts_unit='sec')
-            video = video.permute(0,3,1,2).float() / 255.0
+            video = video.permute(0, 3, 1, 2).float() / 255.0
             key_frames = video.numpy()
-            key_embs = np.arange(len(key_frames)).reshape(-1,1)
+            key_embs = np.arange(len(key_frames)).reshape(-1, 1)
 
     create_video(
         query_embs, query_frames, key_embs, key_frames,
@@ -200,14 +204,21 @@ def visualize(args, cfg):
         args.use_dtw,
         interval=args.interval)
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Visualize alignment.")
-    parser.add_argument('--data_path', type=str, default='/home/username/datasets', help='Path to video data.')
-    parser.add_argument('--video_path', type=str, default=None, help='Path to output aligned video.')
-    parser.add_argument('--use_dtw', action='store_true', default=False, help='Use dynamic time warping.')
-    parser.add_argument('--reference_video', type=str, default=None, help='Reference video.')
-    parser.add_argument('--candidate_video', type=str, default=None, help='Target video.')
-    parser.add_argument('--interval', type=int, default=50, help='Time in ms b/w consecutive frames.')
+    parser.add_argument('--data_path', type=str,
+                        default='/home/username/datasets', help='Path to video data.')
+    parser.add_argument('--video_path', type=str, default=None,
+                        help='Path to output aligned video.')
+    parser.add_argument('--use_dtw', action='store_true',
+                        default=False, help='Use dynamic time warping.')
+    parser.add_argument('--reference_video', type=str,
+                        default=None, help='Reference video.')
+    parser.add_argument('--candidate_video', type=str,
+                        default=None, help='Target video.')
+    parser.add_argument('--interval', type=int, default=50,
+                        help='Time in ms b/w consecutive frames.')
 
     args = parser.parse_args()
     cfg = get_cfg()

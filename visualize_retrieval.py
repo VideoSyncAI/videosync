@@ -1,5 +1,7 @@
 # coding=utf-8
 """Visualize alignment based on nearest neighbor in embedding space."""
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation  # pylint: disable=g-import-not-at-top
 import os
 import torch
 import math
@@ -12,12 +14,11 @@ from utils.config import get_cfg
 
 import matplotlib
 matplotlib.use('Agg')
-from matplotlib.animation import FuncAnimation  # pylint: disable=g-import-not-at-top
-import matplotlib.pyplot as plt
 
 logger = logging.get_logger(__name__)
 
 EPSILON = 1e-7
+
 
 def unnorm(query_frame):
     min_v = query_frame.min()
@@ -50,7 +51,8 @@ def create_retrieval_video(query_frames, key_frames_list, video_path, K=5, inter
         os.mkdir(image_folder)
         for i in np.arange(len(query_frames)):
             update(i)
-            plt.savefig(os.path.join(image_folder, f"frame_{i}.png"), bbox_inches='tight')
+            plt.savefig(os.path.join(
+                image_folder, f"frame_{i}.png"), bbox_inches='tight')
     else:
         anim = FuncAnimation(
             fig,

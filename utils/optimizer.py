@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import math
 
+
 def construct_optimizer(model, cfg):
     """
     Construct a stochastic gradient descent or ADAM optimizer with momentum.
@@ -76,22 +77,25 @@ def construct_optimizer(model, cfg):
             "Does not support {} optimizer".format(cfg.OPTIMIZER.TYPE)
         )
 
+
 def construct_scheduler(optimizer, cfg):
     if cfg.OPTIMIZER.LR.DECAY_TYPE == "fixed":
         return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda epoch: 1)
     elif cfg.OPTIMIZER.LR.DECAY_TYPE == "cosine":
         return torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            T_max=cfg.TRAIN.MAX_EPOCHS + 1, 
+            T_max=cfg.TRAIN.MAX_EPOCHS + 1,
             eta_min=0,
             last_epoch=-1
         )
     elif cfg.OPTIMIZER.LR.DECAY_TYPE == "cosinewarmup":
         base_lr = cfg.OPTIMIZER.LR.INITIAL_LR
-        warmup_lr_schedule = np.linspace(cfg.OPTIMIZER.LR.WARMUP_LR / base_lr, 1, cfg.OPTIMIZER.LR.NUM_WARMUP_STEPS)
-        iters = np.arange(cfg.TRAIN.MAX_EPOCHS + 1 - cfg.OPTIMIZER.LR.NUM_WARMUP_STEPS)
-        cosine_lr_schedule = np.array([cfg.OPTIMIZER.LR.FINAL_LR / base_lr + 0.5 * (1 - cfg.OPTIMIZER.LR.FINAL_LR / base_lr) * \
-                                (1 + math.cos(math.pi * t / len(iters))) for t in iters])
+        warmup_lr_schedule = np.linspace(
+            cfg.OPTIMIZER.LR.WARMUP_LR / base_lr, 1, cfg.OPTIMIZER.LR.NUM_WARMUP_STEPS)
+        iters = np.arange(cfg.TRAIN.MAX_EPOCHS + 1 -
+                          cfg.OPTIMIZER.LR.NUM_WARMUP_STEPS)
+        cosine_lr_schedule = np.array([cfg.OPTIMIZER.LR.FINAL_LR / base_lr + 0.5 * (1 - cfg.OPTIMIZER.LR.FINAL_LR / base_lr) *
+                                       (1 + math.cos(math.pi * t / len(iters))) for t in iters])
         lr_schedule = np.concatenate((warmup_lr_schedule, cosine_lr_schedule))
         return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda epoch: lr_schedule[epoch])
     else:
@@ -99,8 +103,10 @@ def construct_scheduler(optimizer, cfg):
             "Does not support {} scheduler".format(cfg.OPTIMIZER.LR.DECAY_TYPE)
         )
 
+
 def get_lr(optimizer):
     return [param_group["lr"] for param_group in optimizer.param_groups]
+
 
 def set_lr(optimizer, new_lr):
     """

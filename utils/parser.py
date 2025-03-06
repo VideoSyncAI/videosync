@@ -11,10 +11,13 @@ logger = logging.get_logger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="TCC training pipeline.")
-    parser.add_argument('--local_rank', default=0, type=int, help='rank in local processes')
+    parser.add_argument('--local_rank', default=0, type=int,
+                        help='rank in local processes')
 
-    parser.add_argument('--workdir', type=str, default='/home/username/datasets', help='Path to datasets and pretrained models.')
-    parser.add_argument('--logdir', type=str, default=None, help='Path to logs.')
+    parser.add_argument('--workdir', type=str, default='/home/username/datasets',
+                        help='Path to datasets and pretrained models.')
+    parser.add_argument('--logdir', type=str,
+                        default=None, help='Path to logs.')
     parser.add_argument('--continue_train', action='store_true',
                         default=False, help='Continue with training even when \
                         train_logs exist. Useful if one has to resume training. \
@@ -36,7 +39,10 @@ def parse_args():
         default=None,
         nargs=argparse.REMAINDER,
     )
+    parser.add_argument('--dataset_prefix', type=str, default='',
+                        help='Prefix to add to the output dataset files')
     return parser.parse_args()
+
 
 def convert_value(value, v):
     if isinstance(value, bool):
@@ -90,6 +96,7 @@ def load_config(args):
     cfg.EVAL.NUM_FRAMES = cfg.TRAIN.NUM_FRAMES
     return cfg
 
+
 def to_dict(config):
     if isinstance(config, list):
         return [to_dict(c) for c in config]
@@ -97,6 +104,7 @@ def to_dict(config):
         return dict([(k, to_dict(v)) for k, v in config.items()])
     else:
         return config
+
 
 def setup_train_dir(cfg, logdir, continue_train=False):
     """Setups directory for training."""

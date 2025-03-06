@@ -11,6 +11,7 @@ ALGO_NAME_TO_ALGO_CLASS = {
     'scl': SCL,
 }
 
+
 def get_algo(cfg):
     """Returns training algo."""
     algo_name = cfg.TRAINING_ALGO

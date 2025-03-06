@@ -3,6 +3,7 @@ from numpy import array, zeros, full, argmin, inf, ndim
 from scipy.spatial.distance import cdist
 from math import isinf
 
+
 def dtw(x, y, dist, warp=1):
     """
     Computes Dynamic Time Warping (DTW) of two sequences in a faster way.
@@ -60,12 +61,13 @@ def _traceback(D):
         q.insert(0, j)
     return array(p), array(q)
 
+
 if __name__ == "__main__":
     import numpy as np
     x = array([2, 0, 1, 1, 2, 4, 2, 1, 2, 0]).reshape(-1, 1)
     y = array([1, 1, 2, 4, 2, 1, 2, 0]).reshape(-1, 1)
 
-    manhattan_distance = lambda x, y: np.abs(x - y)
+    def manhattan_distance(x, y): return np.abs(x - y)
 
     d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=manhattan_distance)
 

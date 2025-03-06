@@ -31,7 +31,7 @@ CONFIG.DATASETS = [
 ]
 
 # self-supervised mode (SimClR-like methods compare two augmented views)
-CONFIG.SSL = True 
+CONFIG.SSL = True
 # the name of dataset dir
 CONFIG.PATH_TO_DATASET = 'pouring'
 # Algorithm used for training: tcc, tcn, scl, classification.
@@ -85,7 +85,7 @@ CONFIG.EVAL.TASKS = [
     'event_completion',
 ]
 
-# The video will be cut into clips for evaluation, 
+# The video will be cut into clips for evaluation,
 # the max number of frame in each clip.
 CONFIG.EVAL.FRAMES_PER_BATCH = 1000
 CONFIG.EVAL.KENDALLS_TAU_STRIDE = 5  # 5 for Pouring, 2 for PennAction
@@ -106,7 +106,7 @@ CONFIG.MODEL.BASE_MODEL = edict()
 CONFIG.MODEL.BASE_MODEL.NETWORK = 'Resnet50_byol'
 # 3: conv1-conv4 of resnet50 will be frozen, and conv5 will be finetuned
 CONFIG.MODEL.BASE_MODEL.LAYER = 3
-# The video will be sent to 2D resnet50 as batched frames, 
+# The video will be sent to 2D resnet50 as batched frames,
 # the max number of frame in each batch.
 CONFIG.MODEL.BASE_MODEL.FRAMES_PER_BATCH = 40
 
@@ -203,9 +203,10 @@ CONFIG.OPTIMIZER.LR.NUM_WARMUP_STEPS = 1
 # Data params
 # ******************************************************************************
 CONFIG.DATA = edict()
-CONFIG.DATA.FRACTION = 1.0 # The labeled fraction of samples for supervised learning
-CONFIG.DATA.ADDITION_TRAINSET = False # additional traning set for finegym
-CONFIG.DATA.SAMPLING_STRATEGY = 'time_augment' # offset_uniform (for TCC), time_augment (for SCL)
+CONFIG.DATA.FRACTION = 1.0  # The labeled fraction of samples for supervised learning
+CONFIG.DATA.ADDITION_TRAINSET = False  # additional traning set for finegym
+# offset_uniform (for TCC), time_augment (for SCL)
+CONFIG.DATA.SAMPLING_STRATEGY = 'time_augment'
 CONFIG.DATA.NUM_CONTEXTS = 1  # number of frames that will be embedded jointly,
 CONFIG.DATA.CONTEXT_STRIDE = 1  # stride between context frames
 CONFIG.DATA.SAMPLING_REGION = 1.5

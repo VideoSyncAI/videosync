@@ -7,6 +7,7 @@ from datasets.dataset_splits import DATASET_TO_NUM_CLASSES
 
 logger = logging.get_logger(__name__)
 
+
 class Retrieval(object):
     """Calculate Retrieval AP."""
 
@@ -24,10 +25,10 @@ class Retrieval(object):
         val_labels = dataset['val_dataset']['labels']
         val_APs = []
         for K in self.K_list:
-            val_APs.append(self.get_AP(val_embs, val_labels, K, 
-                            cur_epoch, summary_writer, '%s_val' % dataset['name'], visualize=True))
+            val_APs.append(self.get_AP(val_embs, val_labels, K,
+                                       cur_epoch, summary_writer, '%s_val' % dataset['name'], visualize=True))
         return val_APs[0]
-    
+
     def get_AP(self, embs_list, label_list, K, cur_epoch, summary_writer, split, visualize=False):
         """Get topK in embedding space and calculate average precision."""
         num_seqs = len(embs_list)
@@ -59,5 +60,6 @@ class Retrieval(object):
         logger.info('epoch[{}/{}] {} set AP@{} precision: {:.2%}'.format(
             cur_epoch, self.cfg.TRAIN.MAX_EPOCHS, split, K, precision))
 
-        summary_writer.add_scalar(f'AP/{split} set {K}_align_precision', precision, cur_epoch)
+        summary_writer.add_scalar(
+            f'AP/{split} set {K}_align_precision', precision, cur_epoch)
         return precision

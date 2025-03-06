@@ -1,5 +1,5 @@
 SSL: true
-USE_AMP: true
+USE_AMP: false
 AUGMENTATION:
   STRENGTH: 1.0
   BRIGHTNESS: true
@@ -18,31 +18,29 @@ DATA:
   FRAME_LABELS: true
   NUM_CONTEXTS: 1
   CONTEXT_STRIDE: 1
-  NUM_WORKERS: 4
+  NUM_WORKERS: 2
   SAMPLE_ALL_STRIDE: 1
   SAMPLING_STRATEGY: time_augment
   SAMPLING_REGION: 1.5
   CONSISTENT_OFFSET: 1.0
 DATASETS:
-- kinetics400
-- baseball_pitch
+  - kinetics400
+  - ntu
 EVAL:
   BATCH_SIZE: 2
   CLASSIFICATION_FRACTIONS:
-  - 1.0
+    - 1.0
   FRAMES_PER_BATCH: 1000
   KENDALLS_TAU_DISTANCE: sqeuclidean
   KENDALLS_TAU_STRIDE: 2
-  RETRIEVAL_KS: 
-  - 5
-  - 10
-  - 15
+  RETRIEVAL_KS:
+    - 5
+    - 10
+    - 15
   NUM_FRAMES: 80
   TASKS:
-  - kendalls_tau
-  - retrieval
-  - classification
-  - event_completion
+    - kendalls_tau
+    - sync_offset
   VAL_INTERVAL: 2
 IMAGE_SIZE: 224
 LOGDIR: /tmp/scl_transformer_k400_pretrain_logs
@@ -58,20 +56,20 @@ MODEL:
     HIDDEN_SIZE: 256
     D_FF: 1024
     NUM_HEADS: 8
-    NUM_LAYERS: 2
+    NUM_LAYERS: 3
     CONV_LAYERS:
-    - &id002
-      - 256
-      - 3
-      - 1
-    - *id002
+      - &id002
+        - 256
+        - 3
+        - 1
+      - *id002
     EMBEDDING_SIZE: 128
     FC_DROPOUT_RATE: 0.1
     FC_LAYERS:
-    - &id003
-      - 256
-      - true
-    - *id003
+      - &id003
+        - 256
+        - true
+      - *id003
     FLATTEN_METHOD: max_pool
     USE_BN: true
   EMBEDDER_TYPE: transformer
@@ -91,7 +89,7 @@ OPTIMIZER:
     FINAL_LR: 0.0
   TYPE: AdamOptimizer
   WEIGHT_DECAY: 1.0e-05
-PATH_TO_DATASET: 'penn_action'
+PATH_TO_DATASET: "kinetics-dataset/k400"
 RNG_SEED: 1
 SHARD_ID: 0
 SCL:
@@ -102,6 +100,6 @@ SCL:
   POSITIVE_WINDOW: 5
 TRAIN:
   BATCH_SIZE: 2
-  MAX_EPOCHS: 10
+  MAX_EPOCHS: 40
   NUM_FRAMES: 80
 TRAINING_ALGO: scl

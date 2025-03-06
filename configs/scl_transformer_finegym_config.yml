@@ -25,25 +25,25 @@ DATA:
   SAMPLING_REGION: 1.5
   CONSISTENT_OFFSET: 0.2
 DATASETS:
-- finegym
+  - finegym
 EVAL:
   BATCH_SIZE: 1
   FRAMES_PER_BATCH: 6000
   CLASSIFICATION_FRACTIONS:
-  - 0.1
-  - 0.5
-  - 1.0
+    - 0.1
+    - 0.5
+    - 1.0
   CLASSIFICATION_LR: 50
   CLASSIFICATION_EPOCHS: 100
   KENDALLS_TAU_DISTANCE: sqeuclidean
   KENDALLS_TAU_STRIDE: 5
-  RETRIEVAL_KS: 
-  - 5
-  - 10
-  - 15
+  RETRIEVAL_KS:
+    - 5
+    - 10
+    - 15
   NUM_FRAMES: 240
   TASKS:
-  - classification
+    - classification
   VAL_INTERVAL: 50
   CLASS_NUM: 99
 IMAGE_SIZE: 224
@@ -62,18 +62,18 @@ MODEL:
     NUM_LAYERS: 3
     CAPACITY_SCALAR: 2
     CONV_LAYERS:
-    - &id002
-      - 256
-      - 3
-      - 1
-    - *id002
+      - &id002
+        - 256
+        - 3
+        - 1
+      - *id002
     EMBEDDING_SIZE: 128
     FC_DROPOUT_RATE: 0.1
     FC_LAYERS:
-    - &id003
-      - 256
-      - true
-    - *id003
+      - &id003
+        - 256
+        - true
+      - *id003
     FLATTEN_METHOD: max_pool
     USE_BN: true
   EMBEDDER_TYPE: transformer
@@ -93,7 +93,7 @@ OPTIMIZER:
     FINAL_LR: 0.0
   TYPE: AdamOptimizer
   WEIGHT_DECAY: 1.0e-05
-PATH_TO_DATASET: 'finegym'
+PATH_TO_DATASET: "finegym"
 RNG_SEED: 1
 SHARD_ID: 0
 SCL:
